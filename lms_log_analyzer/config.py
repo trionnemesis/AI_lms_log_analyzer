@@ -53,6 +53,9 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "test1234")
 # OpenSearch URL for indexing results
 OPENSEARCH_URL = os.getenv("OPENSEARCH_URL", "http://localhost:9200")
 
+# main.py 輪詢 OpenSearch 的時間間隔（秒）
+POLL_INTERVAL_SEC = int(os.getenv("LMS_POLL_INTERVAL_SEC", 10))
+
 # Filebeat HTTP 伺服器設定
 FILEBEAT_HOST = os.getenv("FILEBEAT_HOST", "0.0.0.0")
 FILEBEAT_PORT = int(os.getenv("FILEBEAT_PORT", 9000))

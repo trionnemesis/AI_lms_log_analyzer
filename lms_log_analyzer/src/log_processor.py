@@ -8,6 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Dict
 
+from opensearchpy import OpenSearch
+
 from .. import config
 from .utils import logger, STATE, save_state
 from .log_parser import fast_score
@@ -21,6 +23,17 @@ from .graph_retrieval_tool import GraphRetrievalTool
 # Initialize once so processed events accumulate into Neo4j
 GRAPH_BUILDER = GraphBuilder()
 GRAPH_RETRIEVER = GraphRetrievalTool(GRAPH_BUILDER)
+
+# Lazily initialized OpenSearch client for polling logs
+_os_client: OpenSearch | None = None
+
+
+def _get_os_client() -> OpenSearch:
+    """Return a singleton OpenSearch client."""
+    global _os_client
+    if _os_client is None:
+        _os_client = OpenSearch(config.OPENSEARCH_URL)
+    return _os_client
 
 
 def filter_logs(lines: List[str]) -> List[Dict]:
@@ -112,3 +125,42 @@ def process_logs(paths: List[Path]) -> List[Dict]:
         with open(p, "r", encoding="utf-8") as f:
             lines.extend([l.rstrip("\n") for l in f])
     return analyse_lines(lines)
+
+
+def process_new_logs(index: str = "filebeat-*") -> int:
+    """Query OpenSearch for new logs and analyse them.
+
+    Parameters
+    ----------
+    index:
+        Index pattern to search for log documents.
+
+    Returns
+    -------
+    int
+        Number of documents processed.
+    """
+    client = _get_os_client()
+    query = {
+        "query": {
+            "bool": {"must_not": {"term": {"ai_analysis_completed": True}}}
+        }
+    }
+    resp = client.search(index=index, body=query, size=100)
+    hits = resp.get("hits", {}).get("hits", [])
+    for hit in hits:
+        line = hit.get("_source", {}).get("message", "")
+        if not line:
+            continue
+        results = analyse_lines([line])
+        if not results:
+            continue
+        analysis = results[0].get("analysis", {})
+        update_body = {
+            "doc": {
+                "analysis": analysis,
+                "ai_analysis_completed": True,
+            }
+        }
+        client.update(index=hit["_index"], id=hit["_id"], body=update_body)
+    return len(hits)
