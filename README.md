@@ -30,7 +30,7 @@
 flowchart TD
     A(Log Source\n*.log *.gz *.bz2) --> B(Filebeat)
     A --> M(main.py)
-    M -->|HTTP POST| C(api_server.py)
+    M --> D(log_processor.py)
     B --> D(log_processor.py)
     D --> E(Wazuh logtest)
     E --> F(fast_score)
@@ -44,8 +44,8 @@ flowchart TD
 
 1. **Filebeat 近即時輸入**：監控日誌並寫入 OpenSearch 索引。
 2. **FastAPI 服務**：`api_server.py` 暴露 `/analyze/logs` 與 `/investigate` 端點。
-3. **批次／串流處理**：`main.py` (批次) 會蒐集新日誌後透過 HTTP POST
-   `/analyze/logs` 傳入 `api_server.py`，或由 `log_processor.py` 主動查詢 OpenSearch。
+3. **批次／串流處理**：`main.py` 透過 `log_processor.process_new_logs()`
+   定期從 OpenSearch 抓取尚未分析的日誌並處理。
 4. **Wazuh 告警比對**：調用 Wazuh `logtest` 只保留產生告警之行。
 5. **啟發式評分**：`fast_score()` 計算危險係數並取前 `SAMPLE_TOP_PERCENT` % 作候選。
 6. **向量搜尋 + 圖譜查詢**：句向量嵌入 → `vector_db.py` 搜尋歷史案例，同時透過 `GraphRetrievalTool` 從 Neo4j 取得相關子圖。
