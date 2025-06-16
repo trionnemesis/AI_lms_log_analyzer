@@ -55,6 +55,7 @@ OPENSEARCH_HOST = os.getenv("OPENSEARCH_HOST", "localhost")
 OPENSEARCH_USER = os.getenv("OPENSEARCH_USER", "admin")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "admin")
 
+
 # 確保必要的目錄存在，避免首次執行時因目錄缺失而出錯。
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 if LMS_ANALYSIS_OUTPUT_FILE.parent != Path("/var/log"):

@@ -1,0 +1,8 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /var/log/LMS_LOG/*.log
+
+output.opensearch:
+  hosts: ["${OPENSEARCH_URL:http://localhost:9200}"]
+  index: "filebeat"
