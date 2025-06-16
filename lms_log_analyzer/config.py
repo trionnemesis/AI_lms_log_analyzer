@@ -50,15 +50,11 @@ NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "test1234")
 
-# OpenSearch URL for indexing results
-OPENSEARCH_URL = os.getenv("OPENSEARCH_URL", "http://localhost:9200")
+# OpenSearch 連線設定
+OPENSEARCH_HOST = os.getenv("OPENSEARCH_HOST", "localhost")
+OPENSEARCH_USER = os.getenv("OPENSEARCH_USER", "admin")
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "admin")
 
-# main.py 輪詢 OpenSearch 的時間間隔（秒）
-POLL_INTERVAL_SEC = int(os.getenv("LMS_POLL_INTERVAL_SEC", 10))
-
-# Filebeat HTTP 伺服器設定
-FILEBEAT_HOST = os.getenv("FILEBEAT_HOST", "0.0.0.0")
-FILEBEAT_PORT = int(os.getenv("FILEBEAT_PORT", 9000))
 
 # 確保必要的目錄存在，避免首次執行時因目錄缺失而出錯。
 DATA_DIR.mkdir(parents=True, exist_ok=True)
