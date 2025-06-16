@@ -30,9 +30,8 @@
 flowchart TD
     A(Log Source\n*.log *.gz *.bz2) --> B(Filebeat)
     A --> M(main.py)
-    B -->|HTTP| C(filebeat_server.py)
     M -->|HTTP POST| C(api_server.py)
-    C --> D(log_processor.py)
+    B --> D(log_processor.py)
     D --> E(Wazuh logtest)
     E --> F(fast_score)
     F -->|Top K %| G(FAISS Vector Search)
@@ -43,11 +42,10 @@ flowchart TD
     K --> L(OpenSearch Dashboards)
 ```
 
-1. **Filebeat 近即時輸入**：監控日誌並經 HTTP 推送至 `filebeat_server.py`。
+1. **Filebeat 近即時輸入**：監控日誌並寫入 OpenSearch 索引。
 2. **FastAPI 服務**：`api_server.py` 暴露 `/analyze/logs` 與 `/investigate` 端點。
 3. **批次／串流處理**：`main.py` (批次) 會蒐集新日誌後透過 HTTP POST
-   `/analyze/logs` 傳入 `api_server.py`；`filebeat_server.py` (串流) 亦將收到的
-   日誌行傳遞給 `log_processor.py`。
+   `/analyze/logs` 傳入 `api_server.py`，或由 `log_processor.py` 主動查詢 OpenSearch。
 4. **Wazuh 告警比對**：調用 Wazuh `logtest` 只保留產生告警之行。
 5. **啟發式評分**：`fast_score()` 計算危險係數並取前 `SAMPLE_TOP_PERCENT` % 作候選。
 6. **向量搜尋 + 圖譜查詢**：句向量嵌入 → `vector_db.py` 搜尋歷史案例，同時透過 `GraphRetrievalTool` 從 Neo4j 取得相關子圖。
@@ -77,7 +75,6 @@ lms_log_analyzer/
 │   ├── llm_handler.py           # 與 Gemini 互動封裝
 │   ├── vector_db.py             # 簡易向量搜尋實作 (FAISS 模擬)
 │   ├── wazuh_api.py             # Wazuh logtest 呼叫
-│   ├── filebeat_server.py       # 接收 Filebeat HTTP 推送
 │   ├── responder.py             # ▶ 進階告警 (Slack／Teams)  ← **新模組**
 │   ├── graph_builder.py         # ▶ Neo4j 實體‧關係寫入      ← **新模組**
 │   ├── graph_retrieval_tool.py  # ▶ Neo4j 子圖查詢工具        ← **新模組**
@@ -268,11 +265,9 @@ filebeat.inputs:
   - type: log
     paths:
       - /var/log/LMS_LOG/*.log
-output.http:
-  url: "http://<API_HOST>:9000/"
-  method: POST
-  headers:
-    Content-Type: application/json
+output.opensearch:
+  hosts: ["http://localhost:9200"]
+  index: "filebeat"
 ```
 
 ---
