@@ -169,6 +169,7 @@ vault kv put secret/lms_log_analyzer/slack webhook_url=https://hooks.slack.com/s
 ```
 
 `responder.py` 於執行時將優先嘗試自 Vault 讀取 Webhook。若無 Vault 設定，則回退至環境變數 `SLACK_WEBHOOK_URL`。
+`vector_db.py` 讀取 `LMS_VECTOR_DB_PATH`、`LMS_EMBED_MODEL` 以設定 FAISS 索引與嵌入模型。
 
 ---
 
@@ -306,7 +307,7 @@ output.opensearch:
 
 ## VIII. CI／CD
 * **GitHub Actions**：`python.yml` 於 push / PR 觸發單元測試，並 (可選) 自動建置 Docker 映像推送至 GHCR / Docker Hub。
-* **GitHub Actions Secrets**：建議將 `GOOGLE_API_KEY`（或 `GEMINI_API_KEY`）、`SLACK_WEBHOOK_URL` 等設定為 Actions Secrets，並於 workflow 內匯入環境。
+* **GitHub Actions Secrets**：建議將 `GOOGLE_API_KEY`（或 `GEMINI_API_KEY`）、`LMS_VECTOR_DB_PATH`、`LMS_EMBED_MODEL`、`SLACK_WEBHOOK_URL` 等設定為 Actions Secrets，並於 workflow 內匯入環境。
 
 ---
 

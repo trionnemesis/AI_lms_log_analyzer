@@ -11,7 +11,14 @@ from pathlib import Path
 BASE_DIR = Path(os.getenv("LMS_HOME", Path(__file__).resolve().parent)).resolve()
 DATA_DIR = BASE_DIR / "data"
 LOG_STATE_FILE = DATA_DIR / "file_state.json"
-VECTOR_DB_PATH = DATA_DIR / "faiss.index"
+VECTOR_DB_PATH = Path(
+    os.getenv("LMS_VECTOR_DB_PATH", DATA_DIR / "faiss.index")
+)
+# 預設句向量模型，可改為本地路徑或 HuggingFace 名稱
+EMBED_MODEL_NAME = os.getenv(
+    "LMS_EMBED_MODEL",
+    "sentence-transformers/all-MiniLM-L6-v2",
+)
 # 儲存每筆向量對應的歷史案例（包含原始日誌與分析結果）
 CASE_DB_PATH = DATA_DIR / "cases.json"
 # 已標註向量資料集，用於後續模型訓練
