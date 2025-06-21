@@ -37,6 +37,8 @@ SIM_T_ATTACK_L2_THRESHOLD = float(os.getenv("LMS_SIM_T_ATTACK_L2_THRESHOLD", 0.3
 SIM_N_NORMAL_L2_THRESHOLD = float(os.getenv("LMS_SIM_N_NORMAL_L2_THRESHOLD", 0.2))
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# 可相容使用新的 GOOGLE_API_KEY 環境變數
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", GEMINI_API_KEY)
 LLM_MODEL_NAME = os.getenv("LMS_LLM_MODEL_NAME", "gemini-1.5-flash-latest")
 
 # Wazuh API 整合設定，若三項皆存在，處理流程會先透過 Wazuh 篩選可疑日誌。

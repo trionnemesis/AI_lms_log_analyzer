@@ -1,16 +1,25 @@
-"""Gemini LLM 呼叫的極簡封裝。
+"""LangChain Gemini Pro 封裝。"""
 
-正式版會透過 LangChain 與 Gemini 互動，此處僅依輸入文字產生
-結構化 JSON，以便在無網路的測試環境模擬分析結果。
-"""
+from __future__ import annotations
 
+import json
 from typing import List, Dict
 
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import SystemMessage, HumanMessage
 import re
+
+from .. import config
+
+_SYSTEM_PROMPT = (
+    "你是資安日誌分析助手，請依使用者輸入判斷是否為攻擊並輸出 JSON。\n"
+    "必須僅回傳如下格式："
+    "{\"is_attack\": bool, \"attack_type\": str, \"entities\": list, \"relations\": list}"
+)
 
 
 def _extract_entities(text: str) -> List[Dict]:
-    """簡易擷取 IP 與使用者名稱為實體。"""
+    """簡易擷取 IP 與使用者名稱為實體 (供 GraphRetrievalTool 使用)。"""
     entities: List[Dict] = []
     for ip in re.findall(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", text):
         entities.append({"id": f"ip_{ip}", "label": "IP", "properties": {"address": ip}})
@@ -21,29 +30,32 @@ def _extract_entities(text: str) -> List[Dict]:
     return entities
 
 
-def llm_analyse(payloads: List[Dict]) -> List[Dict]:
-    """回傳結構化 JSON，模擬 Gemini 的安全分析結果。"""
+def _chat() -> ChatGoogleGenerativeAI:
+    return ChatGoogleGenerativeAI(
+        model=config.LLM_MODEL_NAME,
+        google_api_key=config.GOOGLE_API_KEY or config.GEMINI_API_KEY,
+    )
 
+
+def llm_analyse(payloads: List[Dict]) -> List[Dict]:
+    """使用 Gemini Pro 產生安全分析結果。"""
+
+    chat = _chat()
     results: List[Dict] = []
     for payload in payloads:
         line = payload.get("alert", {}).get("original_log", "")
-        entities = _extract_entities(line)
-        attack_type = "Unknown"
-        lower = line.lower()
-        if "or 1=1" in lower or "union select" in lower:
-            attack_type = "SQL Injection"
-        elif "/etc/passwd" in lower:
-            attack_type = "Sensitive File Access"
-        elif "nmap" in lower:
-            attack_type = "Port Scan"
-        is_attack = attack_type != "Unknown"
-        relations: List[Dict] = []
-        if len(entities) >= 2:
-            relations.append({"start_id": entities[0]["id"], "end_id": entities[1]["id"], "type": "RELATED"})
-        results.append({
-            "is_attack": is_attack,
-            "attack_type": attack_type,
-            "entities": entities,
-            "relations": relations,
-        })
+        examples = payload.get("examples", [])
+        graph = payload.get("graph", {})
+        user_prompt = (
+            f"Log: {line}\n"
+            f"Examples: {examples}\n"
+            f"Graph: {json.dumps(graph, ensure_ascii=False)}"
+        )
+        messages = [SystemMessage(content=_SYSTEM_PROMPT), HumanMessage(content=user_prompt)]
+        try:
+            response = chat.invoke(messages)
+            data = json.loads(response.content)
+        except Exception:
+            data = {}
+        results.append(data)
     return results
