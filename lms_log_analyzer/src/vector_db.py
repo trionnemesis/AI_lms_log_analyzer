@@ -1,69 +1,94 @@
-"""超輕量化的向量資料庫，僅供單元測試使用。
+"""FAISS 向量資料庫與 SentenceTransformer 嵌入。
 
-正式環境應會以 FAISS 等高效方案實作，此處僅將向量與案例
-簡單寫入 JSON 方便測試流程運行。
+此模組提供基本的向量化與搜尋能力，將案例寫入 JSON，索引則使用
+FAISS 儲存。與先前僅存檔 JSON 的實作相比，能在大量資料下提供
+更快速的相似度查詢。
 """
+
+from __future__ import annotations
 
 import json
 from pathlib import Path
 from typing import Iterable, List, Dict, Tuple
 
+import faiss
+import numpy as np
+
 from .. import config
 
 
-def _l2(vec1: List[float], vec2: List[float]) -> float:
-    """計算兩向量的歐氏距離。"""
-    return sum((a - b) ** 2 for a, b in zip(vec1, vec2)) ** 0.5
+_EMBEDDER: "SentenceTransformer" | None = None
+
+
+def _get_embedder() -> "SentenceTransformer":
+    """Lazily load the sentence embedding model."""
+    global _EMBEDDER
+    if _EMBEDDER is None:
+        from sentence_transformers import SentenceTransformer
+        _EMBEDDER = SentenceTransformer(config.EMBED_MODEL_NAME)
+    return _EMBEDDER
 
 
 def embed(text: str) -> List[float]:
-    """以字元編碼簡單產生向量。"""
-    base = sum(ord(c) for c in text)
-    return [float(base % 1000)]
+    """產生 SentenceTransformer 向量。"""
+    model = _get_embedder()
+    vec = model.encode([text], convert_to_numpy=True)[0]
+    return vec.astype("float32").tolist()
 
 
 class SimpleVectorDB:
-    """記憶體中的向量儲存，並可選擇寫入 JSON 持久化。"""
+    """封裝 FAISS index 與案例 JSON。"""
 
-    def __init__(self, path: Path | None = None):
-        """若路徑存在即讀取既有索引。"""
+    def __init__(self, path: Path | None = None, case_path: Path | None = None):
+        """初始化資料庫並載入既有索引與案例。"""
         self.path = Path(path or config.VECTOR_DB_PATH)
-        self.vectors: List[List[float]] = []
-        self.cases: List[Dict] = []
+        self.case_path = Path(case_path or config.CASE_DB_PATH)
+        self.index: faiss.IndexFlatL2 | None = None
         if self.path.exists():
             try:
-                data = json.loads(self.path.read_text())
-                self.vectors = data.get("vectors", [])
-                self.cases = data.get("cases", [])
+                self.index = faiss.read_index(str(self.path))
             except Exception:
-                # 若檔案損毀則重新建立空白資料庫
-                self.vectors = []
+                self.index = None
+
+        self.cases: List[Dict] = []
+        if self.case_path.exists():
+            try:
+                self.cases = json.loads(self.case_path.read_text())
+            except Exception:
                 self.cases = []
 
+    def _ensure_index(self, dim: int) -> None:
+        if self.index is None:
+            self.index = faiss.IndexFlatL2(dim)
+
     def add(self, vecs: List[List[float]], cases: List[Dict]) -> None:
-        """新增向量及其案例。"""
-        self.vectors.extend(vecs)
+        """新增向量及案例。"""
+        if not vecs:
+            return
+        arr = np.array(vecs, dtype="float32")
+        self._ensure_index(arr.shape[1])
+        self.index.add(arr)
         self.cases.extend(cases)
 
     def search(self, vec: List[float], k: int = 3) -> Tuple[List[int], List[float]]:
-        """搜尋 ``k`` 個最近向量並回傳其索引與距離。"""
-        if not self.vectors:
+        """搜尋 ``k`` 個最近向量並回傳索引與距離。"""
+        if self.index is None or self.index.ntotal == 0:
             return [], []
-        dists = [_l2(v, vec) for v in self.vectors]
-        sorted_ids = sorted(range(len(dists)), key=lambda i: dists[i])[:k]
-        return sorted_ids, [dists[i] for i in sorted_ids]
+        arr = np.array([vec], dtype="float32")
+        dists, ids = self.index.search(arr, k)
+        return ids[0].tolist(), dists[0].tolist()
 
     def get_cases(self, ids: Iterable[int]) -> List[Dict]:
-        """依向量索引取得儲存的案例。"""
+        """依向量索引取得案例。"""
         return [self.cases[i] for i in ids if 0 <= i < len(self.cases)]
 
     def save(self) -> None:
-        """將向量與案例寫入磁碟。"""
+        """將索引與案例寫入磁碟。"""
         try:
-            data = {"vectors": self.vectors, "cases": self.cases}
-            self.path.write_text(json.dumps(data))
+            faiss.write_index(self.index, str(self.path))
+            self.case_path.write_text(json.dumps(self.cases))
         except Exception:
-            # 測試環境若寫入失敗則直接忽略
+            # 測試環境寫入失敗可忽略
             pass
 
 
