@@ -302,11 +302,11 @@ output.opensearch:
 | ------------------------------ | ------------------------- | ---------------------------------------------- |
 | `ConnectionError: [Errno 111]` | OpenSearch／Neo4j 未啟動或埠未對映 | `docker ps` 確認容器狀態；檢查 `docker-compose.yml` 埠配置 |
 | `hvac.exceptions.Forbidden`    | Vault 權杖無權讀取對應路徑          | 確認 `VAULT_TOKEN` 與路徑 ACL                       |
-| `401 Unauthorized` (Gemini)    | `GEMINI_API_KEY` 錯誤或權限不足  | 重新申請並匯入環境變數                                    |
+| `401 Unauthorized` (Gemini)    | `GOOGLE_API_KEY`／`GEMINI_API_KEY` 錯誤或權限不足  | 重新申請並匯入環境變數                                    |
 
 ## VIII. CI／CD
 * **GitHub Actions**：`python.yml` 於 push / PR 觸發單元測試，並 (可選) 自動建置 Docker 映像推送至 GHCR / Docker Hub。
-* **GitHub Actions Secrets**：建議將 `GEMINI_API_KEY`、`SLACK_WEBHOOK_URL` 等設定為 Actions Secrets，並於 workflow 內匯入環境。
+* **GitHub Actions Secrets**：建議將 `GOOGLE_API_KEY`（或 `GEMINI_API_KEY`）、`SLACK_WEBHOOK_URL` 等設定為 Actions Secrets，並於 workflow 內匯入環境。
 
 ---
 
