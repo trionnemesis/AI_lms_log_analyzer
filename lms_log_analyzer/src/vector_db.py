@@ -11,8 +11,47 @@ import json
 from pathlib import Path
 from typing import Iterable, List, Dict, Tuple
 
-import faiss
 import numpy as np
+
+try:
+    import faiss  # type: ignore
+except Exception:  # pragma: no cover - fallback for environments without faiss
+    class _FallbackIndex:
+        """Simplified FAISS-like index using NumPy."""
+
+        def __init__(self, dim: int):
+            self.vecs = np.empty((0, dim), dtype="float32")
+
+        @property
+        def ntotal(self) -> int:
+            return len(self.vecs)
+
+        def add(self, arr: np.ndarray) -> None:
+            self.vecs = np.vstack([self.vecs, arr])
+
+        def search(self, arr: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray]:
+            if self.ntotal == 0:
+                dists = np.zeros((arr.shape[0], k), dtype="float32")
+                ids = -np.ones((arr.shape[0], k), dtype=int)
+                return dists, ids
+            diffs = self.vecs[None, :, :] - arr[:, None, :]
+            dists = (diffs ** 2).sum(axis=2)
+            idx = np.argsort(dists, axis=1)[:, :k]
+            sorted_dists = np.take_along_axis(dists, idx, axis=1)
+            return sorted_dists.astype("float32"), idx
+
+    class _FakeFaiss:
+        IndexFlatL2 = _FallbackIndex
+
+        @staticmethod
+        def read_index(path: str) -> _FallbackIndex:
+            return _FallbackIndex(0)
+
+        @staticmethod
+        def write_index(index: _FallbackIndex, path: str) -> None:
+            pass
+
+    faiss = _FakeFaiss()
 
 from .. import config
 
