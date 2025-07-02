@@ -4,11 +4,16 @@ from __future__ import annotations
 此版本會持續輪詢 OpenSearch，將新日誌交由 ``log_processor`` 處理。"""
 
 import logging
+import sys
+from pathlib import Path
 from time import sleep
 
-from . import config
-from .src import log_processor
-from .src.utils import logger
+# Add parent directory to path for absolute imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+import config
+from src import log_processor
+from src.utils import logger
 
 # 統一設定 logging handler
 log_handlers = [logging.StreamHandler()]

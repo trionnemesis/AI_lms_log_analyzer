@@ -32,7 +32,13 @@ def _get_os_client() -> OpenSearch:
     """Return a singleton OpenSearch client."""
     global _os_client
     if _os_client is None:
-        _os_client = OpenSearch(config.OPENSEARCH_URL)
+        _os_client = OpenSearch(
+            hosts=[config.OPENSEARCH_URL],
+            http_auth=(config.OPENSEARCH_USER, config.OPENSEARCH_PASSWORD),
+            use_ssl=config.OPENSEARCH_URL.startswith('https'),
+            verify_certs=False,
+            ssl_show_warn=False
+        )
     return _os_client
 
 

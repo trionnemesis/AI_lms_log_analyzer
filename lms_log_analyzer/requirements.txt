@@ -9,3 +9,6 @@ uvicorn
 python-grok
 py2neo
 opensearch-py
+neo4j
+pytest
+hvac
